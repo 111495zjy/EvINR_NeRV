@@ -21,7 +21,7 @@ class EventData():
         events[: ,0] = events[:, 0] - events[0, 0]
         events[events[:, 3] == 0, 3] = -1
         events = events[(events[:, 0] > self.t_start) & (events[:, 0] < self.t_end)]
-        events[: ,0] = (events[: ,0] - self.t_start) / (self.t_end - self.t_start) * 2 - 1 # Normalize event timestampes to [-1, 1]
+        events[: ,0] = (events[: ,0] - self.t_start) / (self.t_end - self.t_start)# Normalize event timestampes to [0, 1]
 
         if self.H > self.W:
             self.H, self.W = self.W, self.H
@@ -29,9 +29,9 @@ class EventData():
             
         if events.shape[0] == 0:
             raise ValueError(f'No events in [{self.t_start}, {self.t_end}]!')
-        print(f'Loaded {events.shape[0]} events in [{self.t_start}, {self.t_end}] ...')
-        print(f'First event: {events[0]}')
-        print(f'Last event: {events[-1]}')
+        #print(f'Loaded {events.shape[0]} events in [{self.t_start}, {self.t_end}] ...')
+        #print(f'First event: {events[0]}')
+        #print(f'Last event: {events[-1]}')
         return events
     
     def stack_event_frames(self, num_frames):
@@ -44,7 +44,7 @@ class EventData():
                 event_frame = quad_bayer_to_rgb_d2(event_frame)
             event_frame *= self.event_thresh
             event_frames.append(event_frame)
-            event_timestamps.append((event_chunk[0, 0] + event_chunk[-1, 0]) / 2)
+            event_timestamps.append(event_chunk[0, 0])# + event_chunk[-1, 0]) / 2)
         
         event_frames = np.stack(event_frames, axis=0).reshape(num_frames, self.H, self.W, -1)
         self.event_frames = torch.as_tensor(event_frames).float().to(self.device)
