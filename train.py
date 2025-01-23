@@ -67,6 +67,7 @@ def main(args):
         
         events.stack_event_frames(30+random.randint(1, 100))
         log_intensity_preds = model(events.timestamps)
+        print(events.event_frames)
         loss = model.get_losses(log_intensity_preds, events.event_frames)
 
         loss.backward()
