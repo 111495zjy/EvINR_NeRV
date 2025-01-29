@@ -1,7 +1,7 @@
 import numpy as np
 
-txt_file_path = '/content/NeRV_based_EvINR/ECD/slider_depth/events.txt'
-npy_file_path = '/content/NeRV_based_EvINR/ECD/slider_depth/events.npy'
+txt_file_path = '/content/EvINR_NeRV/ECD/slider_depth/events.txt'
+npy_file_path = '/content/EvINR_NeRV/ECD/slider_depth/events.npy'
 events = []
 with open(txt_file_path, 'r') as f:
     for line in f:
