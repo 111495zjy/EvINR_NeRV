@@ -47,7 +47,22 @@ class EvINRModel(nn.Module):
         )
         print('temperal_loss:{}'.format(temperal_loss))
         return (temperal_loss + spatial_loss + const_loss)
-    
+        
+    def get_losses_stage2(self, log_intensity_preds_middletimes, log_intensity_preds_compares):
+        temperal_loss = F.mse_loss(log_intensity_preds_middletimes, log_intensity_preds_compares)
+        # spatial regularization to reduce noise
+        x_grad = log_intensity_preds_middletimes[:, 1: , :, :] - log_intensity_preds_middletimes[:, 0:-1, :, :]
+        y_grad = log_intensity_preds_middletimes[:, :, 1: , :] - log_intensity_preds_middletimes[:, :, 0: -1, :]
+        spatial_loss = 0.06 * (
+            x_grad.abs().mean() + y_grad.abs().mean()
+        )
+
+        # loss term to keep the average intensity of each frame constant
+        const_loss = 0.1 * torch.var(
+            log_intensity_preds_middletimes.reshape(log_intensity_preds_middletimes.shape[0], -1).mean(dim=-1)
+        )
+        return temperal_loss+const_loss+spatial_loss
+
     def tonemapping(self, log_intensity_preds, gamma=0.6):
         intensity_preds = torch.exp(log_intensity_preds).detach()
         # Reinhard tone-mapping
@@ -266,4 +281,3 @@ class Generator(nn.Module):
                 
 
         return  img_out
-
