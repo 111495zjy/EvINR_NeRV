@@ -1,7 +1,7 @@
 import os
 import torch
 import numpy as np
-
+import random
 from utils import events_to_event_frame, quad_bayer_to_rgb_d2
 
 class EventData():
@@ -33,7 +33,42 @@ class EventData():
         #print(f'First event: {events[0]}')
         #print(f'Last event: {events[-1]}')
         return events
-    
+
+    def stack_event_frames(self, num_frames):
+        print(f'Stacking {num_frames} event frames from {self.events.shape[0]} events ...')
+        event_chunks = np.array_split(self.events, num_frames)
+        event_frames, event_timestamps,event_frames_left,event_frames_right,event_timestamps_middle = [], [],[], [],[]
+        for i, event_chunk in enumerate(event_chunks):
+            event_frame = events_to_event_frame(event_chunk, self.H, self.W).squeeze(-1)
+            if self.color_event:
+                event_frame = quad_bayer_to_rgb_d2(event_frame)
+            event_frame *= self.event_thresh
+            event_frames.append(event_frame)
+            event_timestamps.append(event_chunk[0, 0])# + event_chunk[-1, 0]) / 2)
+            #adding the middle timestamp and the right/left frame for stage 2 loss calculation 
+            t_mark = random.randint(1, len(event_chunk))
+            event_frame_left = events_to_event_frame(event_chunk[0:t_mark, :], self.H, self.W).squeeze(-1)
+            event_frame_left *= self.event_thresh
+            event_frame_right = events_to_event_frame(event_chunk[t_mark:-1,:], self.H, self.W).squeeze(-1)
+            event_frame_right *= self.event_thresh
+            timestamps_middle = event_chunk[t_mark, 0]
+            event_frames_left.append(event_frame_left)
+            event_frames_right.append(event_frame_right)
+            event_timestamps_middle.append(timestamps_middle)
+
+        frames_left = np.stack(event_frames_left, axis=0).reshape(num_frames, self.H, self.W, -1)
+        self.event_frames_left = torch.as_tensor(frames_left).float().to(self.device)
+        frames_right = np.stack(event_frames, axis=0).reshape(num_frames, self.H, self.W, -1)
+        self.event_frames_right = torch.as_tensor(frames_right).float().to(self.device)
+        event_frames = np.stack(event_frames, axis=0).reshape(num_frames, self.H, self.W, -1)
+        self.event_frames = torch.as_tensor(event_frames).float().to(self.device)
+
+        timestamps = np.stack(event_timestamps, axis=0).reshape(num_frames, 1)
+        self.timestamps = torch.as_tensor(timestamps).float().to(self.device)
+
+        timestamps_middle = np.stack(event_timestamps_middle, axis=0).reshape(num_frames, 1)
+        self.event_timestamps_middle = torch.as_tensor(timestamps_middle).float().to(self.device)
+'''    
     def stack_event_frames(self, num_frames):
         print(f'Stacking {num_frames} event frames from {self.events.shape[0]} events ...')
         event_chunks = np.array_split(self.events, num_frames)
@@ -50,3 +85,5 @@ class EventData():
         self.event_frames = torch.as_tensor(event_frames).float().to(self.device)
         timestamps = np.stack(event_timestamps, axis=0).reshape(num_frames, 1)
         self.timestamps = torch.as_tensor(timestamps).float().to(self.device)
+'''        
+
