@@ -127,15 +127,46 @@ def main(args):
         
         #events.stack_event_frames(30+random.randint(1, 100))
         log_intensity_preds = model(events.timestamps)
-        loss = model.get_losses(log_intensity_preds, events.event_frames)
-        loss.backward()
-        optimizer.step()
+        if i_iter < (args.iters // 2):
+          loss = model.get_losses(log_intensity_preds, events.event_frames)
+          loss.backward()
+          optimizer.step()
+
+        if not args.no_c2f and i_iter == (args.iters // 2):
+            #trainin data
+            log_intensity_preds_middletimes = model(events.event_timestamps_middle)
+            log_intensity_preds_left = log_intensity_preds[0:-1].detach()+events.event_frames_left[0:-1]
+            log_intensity_preds_right = log_intensity_preds[1:].detach()-events.event_frames_right[0:-1]
+            
+            log_intensity_preds_compares = (log_intensity_preds_left+log_intensity_preds_right) / 2
+            loss = model.get_losses_stage2(log_intensity_preds_middletimes[0:-1], log_intensity_preds_compares)
+            loss.backward()
+            optimizer.step()
+            #vizualization
+            intensity_preds1 = model.tonemapping(log_intensity_preds_left[20]).squeeze(-1)
+            intensity_preds2 = model.tonemapping(log_intensity_preds_right[20]).squeeze(-1)
+            intensity_preds3 = model.tonemapping(log_intensity_preds_compares[20]).squeeze(-1)
+            intensity_preds1 = intensity_preds1.cpu().detach().numpy()
+            intensity_preds2 = intensity_preds2.cpu().detach().numpy()
+            intensity_preds3 = intensity_preds3.cpu().detach().numpy()
+            image_data = (intensity_preds1*255).astype(np.uint8)
+            image = Image.fromarray(image_data)
+            output_path = os.path.join('/content/EvINR_NeRV/logs', 'output_image_left.png')
+            image.save(output_path)
+            image_data = (intensity_preds2*255).astype(np.uint8)
+            image = Image.fromarray(image_data)
+            output_path = os.path.join('/content/EvINR_NeRV/logs', 'output_image_right.png')
+            image.save(output_path)
+            image_data = (intensity_preds3*255).astype(np.uint8)
+            image = Image.fromarray(image_data)
+            output_path = os.path.join('/content/EvINR_NeRV/logs', 'output_image_average.png')
+            image.save(output_path)
+
+            #events.stack_event_frames(args.train_resolution * 2)
+
         if i_iter % args.log_interval == 0:
             tqdm.write(f'iter {i_iter}, loss {loss.item():.4f}')
             writer.add_scalar('loss', loss.item(), i_iter)
-
-        if not args.no_c2f and i_iter == (args.iters // 2):
-            events.stack_event_frames(args.train_resolution * 2)
 
 
         intensity_preds = model.tonemapping(log_intensity_preds[20]).squeeze(-1)
