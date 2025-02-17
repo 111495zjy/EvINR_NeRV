@@ -131,15 +131,16 @@ def main(args):
           loss = model.get_losses(log_intensity_preds, events.event_frames)
           loss.backward()
           optimizer.step()
+          log_intensity_preds_follow = log_intensity_preds.detach().clone()
 
-        if not args.no_c2f and i_iter == (args.iters // 2):
+        if not args.no_c2f and i_iter >= (args.iters // 2):
             #trainin data
             log_intensity_preds_middletimes = model(events.event_timestamps_middle)
-            log_intensity_preds_left = log_intensity_preds[0:-1].detach()+events.event_frames_left[0:-1]
-            log_intensity_preds_right = log_intensity_preds[1:].detach()-events.event_frames_right[0:-1]
+            log_intensity_preds_left = log_intensity_preds_follow[0:-1]+events.event_frames_left[0:-1]
+            log_intensity_preds_right = log_intensity_preds_follow[1:]-events.event_frames_right[0:-1]
             
             log_intensity_preds_compares = (log_intensity_preds_left+log_intensity_preds_right) / 2
-            loss = model.get_losses_stage2(log_intensity_preds_middletimes[0:-1], log_intensity_preds_compares)
+            loss = model.get_losses_stage2(log_intensity_preds_middletimes[0:-1], log_intensity_preds_right)
             loss.backward()
             optimizer.step()
             #vizualization
@@ -161,9 +162,14 @@ def main(args):
             image = Image.fromarray(image_data)
             output_path = os.path.join('/content/EvINR_NeRV/logs', 'output_image_average.png')
             image.save(output_path)
-
+            intensity_preds = model.tonemapping(log_intensity_preds_middletimes[20]).squeeze(-1)
+            intensity1 = intensity_preds.cpu().detach().numpy()
+            image_data = (intensity1*255).astype(np.uint8)
+            image = Image.fromarray(image_data)
+            output_path = os.path.join('/content/EvINR_NeRV/logs', 'output_image_middletime.png')
+            image.save(output_path)
             #events.stack_event_frames(args.train_resolution * 2)
-
+          
         if i_iter % args.log_interval == 0:
             tqdm.write(f'iter {i_iter}, loss {loss.item():.4f}')
             writer.add_scalar('loss', loss.item(), i_iter)
@@ -183,6 +189,8 @@ def main(args):
         image = Image.fromarray(image_data)
         output_path = os.path.join('/content/EvINR_NeRV/logs', 'output_image_0.001.png')
         image.save(output_path)
+        
+
 
 
 
