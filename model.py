@@ -61,6 +61,7 @@ class EvINRModel(nn.Module):
         const_loss = 0.1 * torch.var(
             log_intensity_preds_middletimes.reshape(log_intensity_preds_middletimes.shape[0], -1).mean(dim=-1)
         )
+        print('temperal_loss:{}'.format(temperal_loss))
         return temperal_loss+const_loss+spatial_loss
 
     def tonemapping(self, log_intensity_preds, gamma=0.6):
